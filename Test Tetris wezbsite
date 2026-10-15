@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Tetris</title>
+<style>
+  body { background:#111; color:#eee; font-family:sans-serif; text-align:center; }
+  canvas { background:#000; border:2px solid #555; }
+  #score { font-size:24px; margin:10px; }
+</style>
+</head>
+<body>
+<h1>Tetris</h1>
+<div id="score">Score : 0</div>
+<canvas id="jeu" width="240" height="400"></canvas>
+<p>Flèches gauche/droite : bouger<br>Flèche haut : tourner<br>Flèche bas : descendre<br>Espace : chute directe</p>
+<button onclick="demarrer()">Nouvelle partie</button>
+
+<script>
+const canvas = document.getElementById('jeu');
+const ctx = canvas.getContext('2d');
+const COLS = 12, LIGNES = 20, T = 20;
+
+const FORMES = [
+  [[1,1,1,1]],
+  [[1,1],[1,1]],
+  [[0,1,0],[1,1,1]],
+  [[1,0,0],[1,1,1]],
+  [[0,0,1],[1,1,1]],
+  [[0,1,1],[1,1,0]],
+  [[1,1,0],[0,1,1]]
+];
+const COULEURS = ['#0ff','#ff0','#a0f','#00f','#f80','#0f0','#f00'];
+
+let grille, piece, score, intervalle, fini;
+
+function nouvellePiece() {
+  const i = Math.floor(Math.random() * FORMES.length);
+  return { forme: FORMES[i], couleur: COULEURS[i], x: 4, y: 0 };
+}
+
+function collision(forme, px, py) {
+  for (let y = 0; y < forme.length; y++)
+    for (let x = 0; x < forme[y].length; x++)
+      if (forme[y][x]) {
+        const nx = px + x, ny = py + y;
+        if (nx < 0 || nx >= COLS || ny >= LIGNES) return true;
+        if (ny >= 0 && grille[ny][nx]) return true;
+      }
+  return false;
+}
+
+function fixer() {
+  piece.forme.forEach((ligne, y) => ligne.forEach((v, x) => {
+    if (v) grille[piece.y + y][piece.x + x] = piece.couleur;
+  }));
+  // lignes complètes
+  let nb = 0;
+  for (let y = LIGNES - 1; y >= 0; y--) {
+    if (grille[y].every(c => c)) {
+      grille.splice(y, 1);
+      grille.unshift(Array(COLS).fill(0));
+      nb++; y++;
+    }
+  }
+  score += [0,100,300,500,800][nb];
+  document.getElementById('score').textContent = 'Score : ' + score;
+  piece = nouvellePiece();
+  if (collision(piece.forme, piece.x, piece.y)) {
+    fini = true;
+    clearInterval(intervalle);
+  }
+}
+
+function tourner() {
+  const f = piece.forme;
+  const r = f[0].map((_, i) => f.map(l => l[i]).reverse());
+  if (!collision(r, piece.x, piece.y)) piece.forme = r;
+}
+
+function descendre() {
+  if (!collision(piece.forme, piece.x, piece.y + 1)) piece.y++;
+  else fixer();
+  dessiner();
+}
+
+function dessiner() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  grille.forEach((ligne, y) => ligne.forEach((c, x) => {
+    if (c) { ctx.fillStyle = c; ctx.fillRect(x*T, y*T, T-1, T-1); }
+  }));
+  if (!fini) {
+    ctx.fillStyle = piece.couleur;
+    piece.forme.forEach((ligne, y) => ligne.forEach((v, x) => {
+      if (v) ctx.fillRect((piece.x+x)*T, (piece.y+y)*T, T-1, T-1);
+    }));
+  } else {
+    ctx.fillStyle = '#fff';
+    ctx.font = '28px sans-serif';
+    ctx.fillText('GAME OVER', 50, 200);
+  }
+}
+
+document.addEventListener('keydown', e => {
+  if (fini) return;
+  if (e.key === 'ArrowLeft' && !collision(piece.forme, piece.x - 1, piece.y)) piece.x--;
+  else if (e.key === 'ArrowRight' && !collision(piece.forme, piece.x + 1, piece.y)) piece.x++;
+  else if (e.key === 'ArrowDown') descendre();
+  else if (e.key === 'ArrowUp') tourner();
+  else if (e.key === ' ') {
+    while (!collision(piece.forme, piece.x, piece.y + 1)) piece.y++;
+    fixer();
+  }
+  if (['ArrowLeft','ArrowRight','ArrowDown','ArrowUp',' '].includes(e.key)) e.preventDefault();
+  dessiner();
+});
+
+function demarrer() {
+  clearInterval(intervalle);
+  grille = Array.from({length: LIGNES}, () => Array(COLS).fill(0));
+  piece = nouvellePiece();
+  score = 0; fini = false;
+  document.getElementById('score').textContent = 'Score : 0';
+  intervalle = setInterval(descendre, 500);
+  dessiner();
+}
+demarrer();
+</script>
+</body>
+</html>
